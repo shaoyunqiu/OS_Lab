@@ -50,7 +50,9 @@ idt_init(void) {
       for(int i = 0 ; i < 256 ; i ++){
         SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL) ;
       }
-      SETGATE(idt[T_SWITCH_TOK], 0, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER) ;
+      //set for systecall, switch to kernel
+      SETGATE(idt[T_SWITCH_TOK], 1, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER) ;
+
       lidt(&idt_pd) ;
 }
 
@@ -166,8 +168,20 @@ trap_dispatch(struct trapframe *tf) {
         break;
     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
     case T_SWITCH_TOU:
-    case T_SWITCH_TOK:
-        panic("T_SWITCH_** ??\n");
+        tf->tf_cs = USER_CS ; //CODE
+        tf->tf_ds = USER_DS ; //DATA
+        tf->tf_ss = USER_DS ; //STACKE
+        tf->tf_es = USER_DS ; //EXTRA
+        tf->tf_eflags |= (3 << 12) ; // enable I/O
+        //print_trapframe(tf) ;
+        break ;
+    case T_SWITCH_TOK:   
+        tf->tf_cs = KERNEL_CS ;
+        tf->tf_ds = KERNEL_DS ;
+        tf->tf_es = KERNEL_DS ;  
+        tf->tf_eflags &= ~(3 << 12) ; // disable I/0   
+        //panic("T_SWITCH_** ??\n");
+        //print_trapframe(tf) ;
         break;
     case IRQ_OFFSET + IRQ_IDE1:
     case IRQ_OFFSET + IRQ_IDE2:
