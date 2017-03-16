@@ -293,8 +293,9 @@ pmm_init(void) {
 
     // detect physical memory space, reserve already used memory,
     // then use pmm->init_memmap to create free page list
+    //cprintf("before page_init\n") ;
     page_init();
-
+    //cprintf("after page_init\n") ;
     //use pmm->check to verify the correctness of the alloc/free function in a pmm
     check_alloc_page();
 
