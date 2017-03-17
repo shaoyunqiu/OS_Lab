@@ -391,7 +391,9 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
         memset(KADDR(pa), 0, PGSIZE);
         *pdep = pa | PTE_U | PTE_W | PTE_P;
     }
-    return &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
+    pte_t *pte = &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
+    cprintf("the pte : %d\n", *pte);
+    return pte ;
 }
 
 //get_page - get related Page struct for linear address la using PDT pgdir
