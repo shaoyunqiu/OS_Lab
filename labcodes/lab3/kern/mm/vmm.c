@@ -338,6 +338,7 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
      * THEN
      *    continue process
      */
+     //cprintf("do_pgfault, continue process\n") ;
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
         perm |= PTE_W;
@@ -364,12 +365,12 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     *   mm->pgdir : the PDT of these vma
     *
     */
-#if 0
+
     /*LAB3 EXERCISE 1: YOUR CODE*/
-    ptep = ???              //(1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
+    ptep = get_pte(mm->pgdir, addr, 1) ;              //(1) try to find a pte, if pte's PT(Page Table) isn't existed, then create a PT.
     if (*ptep == 0) {
                             //(2) if the phy addr isn't exist, then alloc a page & map the phy addr with logical addr
-
+        struct Page *page = pgdir_alloc_page(mm->pgdir, addr, perm) ;
     }
     else {
     /*LAB3 EXERCISE 2: YOUR CODE
@@ -385,17 +386,18 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
     */
         if(swap_init_ok) {
             struct Page *page=NULL;
-                                    //(1）According to the mm AND addr, try to load the content of right disk page
-                                    //    into the memory which page managed.
-                                    //(2) According to the mm, addr AND page, setup the map of phy addr <---> logical addr
-                                    //(3) make the page swappable.
+            swap_in(mm, addr, &page) ;                        //(1）According to the mm AND addr, try to load the content of right disk page
+            page_insert(mm->pgdir, page, addr, perm) ;                        //    into the memory which page managed.
+            page->pra_vaddr = addr ;
+            swap_map_swappable(mm, addr, page, 1) ;                        //(2) According to the mm, addr AND page, setup the map of phy addr <---> logical addr
+                                                                        //(3) make the page swappable.
         }
         else {
             cprintf("no swap_init_ok but ptep is %x, failed\n",*ptep);
             goto failed;
         }
    }
-#endif
+
    ret = 0;
 failed:
     return ret;

@@ -392,7 +392,7 @@ get_pte(pde_t *pgdir, uintptr_t la, bool create) {
         *pdep = pa | PTE_U | PTE_W | PTE_P;
     }
     pte_t *pte = &((pte_t *)KADDR(PDE_ADDR(*pdep)))[PTX(la)];
-    cprintf("the pte : %d\n", *pte);
+    //cprintf("the pte : %d\n", *pte);
     return pte ;
 }
 

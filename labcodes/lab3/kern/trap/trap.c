@@ -48,6 +48,15 @@ idt_init(void) {
       *     You don't know the meaning of this instruction? just google it! and check the libs/x86.h to know more.
       *     Notice: the argument of lidt is idt_pd. try to find it!
       */
+      extern uintptr_t __vectors[] ;
+      int i ;
+      for(i = 0 ; i < 256 ; i ++){
+        SETGATE(idt[i], 0, GD_KTEXT, __vectors[i], DPL_KERNEL) ;
+      }
+      //set for systecall, switch to kernel
+      SETGATE(idt[T_SWITCH_TOK], 1, GD_KTEXT, __vectors[T_SWITCH_TOK], DPL_USER) ;
+
+      lidt(&idt_pd) ;
 }
 
 static const char *
@@ -176,16 +185,18 @@ trap_dispatch(struct trapframe *tf) {
         }
         break;
     case IRQ_OFFSET + IRQ_TIMER:
-#if 0
+/*#if 0
     LAB3 : If some page replacement algorithm(such as CLOCK PRA) need tick to change the priority of pages, 
     then you can add code here. 
-#endif
+#endif*/
         /* LAB1 YOUR CODE : STEP 3 */
         /* handle the timer interrupt */
         /* (1) After a timer interrupt, you should record this event using a global variable (increase it), such as ticks in kern/driver/clock.c
          * (2) Every TICK_NUM cycle, you can print some info using a funciton, such as print_ticks().
          * (3) Too Simple? Yes, I think so!
          */
+        ++ ticks ;
+        if(ticks % TICK_NUM == 0) print_ticks() ;
         break;
     case IRQ_OFFSET + IRQ_COM1:
         c = cons_getc();
@@ -197,8 +208,19 @@ trap_dispatch(struct trapframe *tf) {
         break;
     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
     case T_SWITCH_TOU:
+        tf->tf_cs = USER_CS ; //CODE
+        tf->tf_ds = USER_DS ; //DATA
+        tf->tf_ss = USER_DS ; //STACKE
+        tf->tf_es = USER_DS ; //EXTRA
+        tf->tf_eflags |= (3 << 12) ; // enable I/O
+        //print_trapframe(tf) ;
+        break ;
     case T_SWITCH_TOK:
-        panic("T_SWITCH_** ??\n");
+        //panic("T_SWITCH_** ??\n");
+        tf->tf_cs = KERNEL_CS ;
+        tf->tf_ds = KERNEL_DS ;
+        tf->tf_es = KERNEL_DS ;  
+        tf->tf_eflags &= ~(3 << 12) ;
         break;
     case IRQ_OFFSET + IRQ_IDE1:
     case IRQ_OFFSET + IRQ_IDE2:
