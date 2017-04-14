@@ -7,6 +7,7 @@
 void
 wakeup_proc(struct proc_struct *proc) {
     assert(proc->state != PROC_ZOMBIE);
+    cprintf("wakeup proc %d in sched.c/wakeup_proc\n", proc->pid) ;
     bool intr_flag;
     local_intr_save(intr_flag);
     {
@@ -26,6 +27,7 @@ schedule(void) {
     bool intr_flag;
     list_entry_t *le, *last;
     struct proc_struct *next = NULL;
+    cprintf("in schedule, the current proc %d: %s, and it's state is %d\n", current->pid, current->name, current->state) ;
     local_intr_save(intr_flag);
     {
         current->need_resched = 0;
@@ -43,8 +45,13 @@ schedule(void) {
             next = idleproc;
         }
         next->runs ++;
+        cprintf("the runtimes of next proc is %d in schedule\n", next->runs) ;
         if (next != current) {
+            cprintf("next proc %d going to run in schedule\n", next->pid) ;
             proc_run(next);
+        }
+        else{
+            cprintf("the former proc %d still going to run in schedule\n", next->pid) ;
         }
     }
     local_intr_restore(intr_flag);

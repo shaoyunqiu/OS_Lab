@@ -209,6 +209,7 @@ proc_run(struct proc_struct *proc) {
         local_intr_save(intr_flag);
         {
             current = proc;
+            cprintf("switch from proc %d: %s to proc %d : %s \n", prev->pid, prev->name, next->pid, next->name) ;
             load_esp0(next->kstack + KSTACKSIZE);
             lcr3(next->cr3);
             switch_to(&(prev->context), &(next->context));
@@ -222,6 +223,8 @@ proc_run(struct proc_struct *proc) {
 //       after switch_to, the current proc will execute here.
 static void
 forkret(void) {
+    cprintf("forkret: the first entry point of a new thread/process %d: %s \n", current->pid, current->name) ;
+    //print_stackframe() ;
     forkrets(current->tf);
 }
 
@@ -453,6 +456,8 @@ do_exit(int error_code) {
     if (current == initproc) {
         panic("initproc exit.\n");
     }
+
+    cprintf("do_exit: proc %d: %s \n", current->pid, current->name) ;
     
     struct mm_struct *mm = current->mm;
     if (mm != NULL) {
@@ -655,6 +660,7 @@ do_execve(const char *name, size_t len, unsigned char *binary, size_t size) {
     if (!user_mem_check(mm, (uintptr_t)name, len, 0)) {
         return -E_INVAL;
     }
+    cprintf("do_execve: %s\n", name) ;
     if (len > PROC_NAME_LEN) {
         len = PROC_NAME_LEN;
     }
@@ -687,6 +693,7 @@ execve_exit:
 // do_yield - ask the scheduler to reschedule
 int
 do_yield(void) {
+    cprintf("do_yield , proc %d: %s ask the scheduler to reschedule\n", current->pid, current->name) ;
     current->need_resched = 1;
     return 0;
 }
@@ -702,7 +709,7 @@ do_wait(int pid, int *code_store) {
             return -E_INVAL;
         }
     }
-
+    cprintf("do_wait pid is %d\n", pid) ;
     struct proc_struct *proc;
     bool intr_flag, haskid;
 repeat:
@@ -726,6 +733,7 @@ repeat:
         }
     }
     if (haskid) {
+        cprintf("change to sleep proc %d: %s\n", current->pid, current->name) ;
         current->state = PROC_SLEEPING;
         current->wait_state = WT_CHILD;
         schedule();
@@ -758,6 +766,7 @@ found:
 int
 do_kill(int pid) {
     struct proc_struct *proc;
+    cprintf("do_kill, kill proc %d\n", pid) ;
     if ((proc = find_proc(pid)) != NULL) {
         if (!(proc->flags & PF_EXITING)) {
             proc->flags |= PF_EXITING;
@@ -806,10 +815,12 @@ kernel_execve(const char *name, unsigned char *binary, size_t size) {
 // user_main - kernel thread used to exec a user program
 static int
 user_main(void *arg) {
+    cprintf("--------------------in user_main------------------\n") ;
 #ifdef TEST
     KERNEL_EXECVE2(TEST, TESTSTART, TESTSIZE);
 #else
-    KERNEL_EXECVE(exit);
+    //KERNEL_EXECVE(exit);
+    KERNEL_EXECVE(hello);
 #endif
     panic("user_main execve failed.\n");
 }
