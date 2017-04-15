@@ -27,7 +27,7 @@ schedule(void) {
     bool intr_flag;
     list_entry_t *le, *last;
     struct proc_struct *next = NULL;
-    cprintf("in schedule, the current proc %d: %s, and it's state is %d\n", current->pid, current->name, current->state) ;
+    cprintf("in schedule, the current proc %d: %s, and it's state is %d\n", current->pid, current->name, current->state) ;s
     local_intr_save(intr_flag);
     {
         current->need_resched = 0;
