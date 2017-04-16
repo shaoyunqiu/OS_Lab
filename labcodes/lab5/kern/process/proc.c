@@ -121,6 +121,10 @@ alloc_proc(void) {
     proc->cr3 = boot_cr3;
     proc->flags = 0;
     memset(proc->name, 0, PROC_NAME_LEN);
+    proc->wait_state = 0 ;
+    proc->cptr = NULL ;
+    proc->yptr = NULL ;
+    proc->optr = NULL ;
     }
     return proc;
 }
@@ -420,6 +424,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     }
 
     proc->parent = current;
+    assert(current->wait_state == 0) ;
 
     if (setup_kstack(proc) != 0) {
         goto bad_fork_cleanup_proc;
@@ -434,15 +439,16 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     {
         proc->pid = get_pid();
         hash_proc(proc);
-        list_add(&proc_list, &(proc->list_link));
-        nr_process ++;
+        //list_add(&proc_list, &(proc->list_link));
+        set_links(proc) ;
+        //nr_process ++;
     }
     local_intr_restore(intr_flag);
 
     wakeup_proc(proc);
 
     ret = proc->pid;
-    
+
 fork_out:
     return ret;
 
@@ -641,6 +647,13 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf_eip should be the entry point of this binary program (elf->e_entry)
      *          tf_eflags should be set to enable computer to produce Interrupt
      */
+     tf->tf_cs = USER_CS ;
+     tf->tf_ds = USER_DS ;
+     tf->tf_es = USER_DS ;
+     tf->tf_ss = USER_DS ;
+     tf->tf_esp = USTACKTOP ;
+     tf->tf_eip = elf->e_entry ;
+     tf->tf_eflags = FL_IF ;// defined in meu.h
     ret = 0;
 out:
     return ret;
@@ -838,6 +851,7 @@ init_main(void *arg) {
 
     cprintf("all user-mode processes have quit.\n");
     assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
+    cprintf("now the nr_process is %d\n", nr_process) ;
     assert(nr_process == 2);
     assert(list_next(&proc_list) == &(initproc->list_link));
     assert(list_prev(&proc_list) == &(initproc->list_link));
