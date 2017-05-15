@@ -657,13 +657,14 @@ load_icode(int fd, int argc, char **kargv) {
     }
     if(elf->e_magic != ELF_MAGIC){
         cprintf("load_icode-->elf_magic error") ;
+        ret = -E_INVAL_ELF;
         goto bad_elf_cleanup_pgdir ;
     }
     //(3.2) read raw data content in file and resolve proghdr based on info in elfhdr
     struct proghdr __ph, *ph = &__ph ;
     uint32_t vm_flags, perm;
     for(int i = 0 ; i < elf->e_phnum ; i ++){
-        off_t phoff = elf->e_phoff + sizeof(struct proghdr) * i ;
+        off_t phoff = elf->e_phoff + sizeof(struct proghdr) * i ; //find every program section headers
         if((ret = load_icode_read(fd, ph, sizeof(struct proghdr), phoff)) != 0){
             cprintf("load_icode-->load_icode_read progh failed\n") ;
             goto bad_cleanup_mmap ;
@@ -671,12 +672,19 @@ load_icode(int fd, int argc, char **kargv) {
         if(ph->p_type != ELF_PT_LOAD){
             continue ; 
         }
+        if (ph->p_filesz > ph->p_memsz) { // if the filsz is legal?
+            ret = -E_INVAL_ELF;
+            goto bad_cleanup_mmap;
+        }
+        if (ph->p_filesz == 0) {
+            continue ;
+        }
         vm_flags = 0 ;
         perm = PTE_U ;
         if(ph->p_flags & ELF_PF_X) vm_flags |= VM_EXEC ;
         if(ph->p_flags & ELF_PF_W) vm_flags |= VM_WRITE ;
         if(ph->p_flags & ELF_PF_R) vm_flags |= VM_READ ;
-        if(vm_flags & VM_WRITE) perm = PTE_W ;
+        if(vm_flags & VM_WRITE) perm |= PTE_W ; // set uo flags
         //(3.3) call mm_map to build vma related to TEXT/DATA
         if((ret = mm_map(mm, ph->p_va, ph->p_memsz, vm_flags, NULL)) != 0){
             cprintf("load_icode--> mm_map failed\n") ;
@@ -689,6 +697,7 @@ load_icode(int fd, int argc, char **kargv) {
         uintptr_t start = ph->p_va , end, la = ROUNDDOWN(start, PGSIZE) ; // in def,h
         ret = -E_NO_MEM ;
         end = ph->p_va + ph->p_filesz ;
+        // from (start, end) copy content to (la , la+end) vm
         while(start < end){
             if((page = pgdir_alloc_page(mm->pgdir, la, perm)) == NULL){
                 cprintf("load_icode-->pgdir_alloc_page failed\n") ;
@@ -707,6 +716,8 @@ load_icode(int fd, int argc, char **kargv) {
             start += size ;
             offset += size ;  
         }
+
+        //(3.5) callpgdir_alloc_page to allocate pages for BSS
         end = ph->p_va + ph->p_memsz ;
 
         if(start < la){
@@ -747,6 +758,11 @@ load_icode(int fd, int argc, char **kargv) {
     if ((ret = mm_map(mm, USTACKTOP - USTACKSIZE, USTACKSIZE, vm_flags, NULL)) != 0) {
         goto bad_cleanup_mmap;
     }
+    //alloc_page
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-2*PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-3*PGSIZE , PTE_USER) != NULL);
+    assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-4*PGSIZE , PTE_USER) != NULL);
 
     //(5) setup current process's mm, cr3, reset pgidr (using lcr3 MARCO)
     mm_count_inc(mm);
@@ -781,7 +797,6 @@ load_icode(int fd, int argc, char **kargv) {
     tf->tf_eip = elf->e_entry;
     tf->tf_eflags = FL_IF;
     ret = 0;
-
 out:
     return ret;
 bad_cleanup_mmap:
